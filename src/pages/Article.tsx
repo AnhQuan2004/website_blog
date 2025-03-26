@@ -141,16 +141,20 @@ const Article = () => {
 
   // Handle share action
   const handleShare = () => {
+    // Get the base URL of the application
+    const baseUrl = window.location.origin;
+    // Construct the absolute URL for the article
+    const shareUrl = `${baseUrl}/article/${slug}`;
     if (navigator.share) {
       navigator
         .share({
           title: article?.title,
           text: article?.excerpt,
-          url: window.location.href,
+          url: shareUrl,
         })
         .catch(() => {
           // Fallback if sharing failed or was cancelled
-          navigator.clipboard.writeText(window.location.href);
+          navigator.clipboard.writeText(shareUrl);
           toast({
             title: "Link copied to clipboard",
             description: "You can now share this article with others",
@@ -159,7 +163,7 @@ const Article = () => {
         });
     } else {
       // Fallback for browsers that don't support the Web Share API
-      navigator.clipboard.writeText(window.location.href);
+      navigator.clipboard.writeText(shareUrl);
       toast({
         title: "Link copied to clipboard",
         description: "You can now share this article with others",
