@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import MarkdownUploader from '@/components/articles/MarkdownUploader';
+import MarkdownUploader from '@/components/blog/MarkdownUploader';
 
 const formSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
@@ -26,13 +26,13 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const ArticleEditor = () => {
+const BlogPostEditor = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [articleId, setArticleId] = useState<string | null>(null);
+  const [blogPostId, setBlogPostId] = useState<string | null>(null);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -50,7 +50,7 @@ const ArticleEditor = () => {
   useEffect(() => {
     // If not authenticated, redirect to login
     if (!isAuthenticated) {
-      toast.error('You must be logged in to edit posts');
+      toast.error('You must be logged in to edit blog posts');
       navigate('/login', { replace: true });
       return;
     }
@@ -67,7 +67,7 @@ const ArticleEditor = () => {
     try {
       const post = await getArticleBySlug(slug!);
       if (post) {
-        setArticleId(post.id);
+        setBlogPostId(post.id);
         form.reset({
           title: post.title,
           excerpt: post.excerpt,
@@ -78,12 +78,12 @@ const ArticleEditor = () => {
           featured: post.featured,
         });
       } else {
-        toast.error('Post not found');
+        toast.error('Blog post not found');
         navigate('/dashboard', { replace: true });
       }
     } catch (error) {
-      console.error('Error fetching post:', error);
-      toast.error('Error loading post');
+      console.error('Error fetching blog post:', error);
+      toast.error('Error loading blog post');
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +91,8 @@ const ArticleEditor = () => {
 
   const onSubmit = async (values: FormValues) => {
     if (!user) {
-      toast.error('You must be logged in to publish posts');
+      toast.error('You must be logged in to publish blog posts');
+      navigate('/login', { replace: true });
       return;
     }
 
@@ -103,9 +104,12 @@ const ArticleEditor = () => {
         .map(tag => tag.trim())
         .filter(tag => tag.length > 0);
       
-      if (isEditing && articleId) {
+      // Log the authentication token being used
+      console.log('Using auth token:', localStorage.getItem('auth_token')?.substring(0, 10) + '...');
+      
+      if (isEditing && blogPostId) {
         // Update existing post
-        await updateArticle(articleId, {
+        await updateArticle(blogPostId, {
           title: values.title,
           excerpt: values.excerpt,
           content: values.content,
@@ -114,10 +118,21 @@ const ArticleEditor = () => {
           tags: tagsArray,
           featured: values.featured || false,
         });
-        navigate(`/article/${slug}`, { replace: true });
+        toast.success('Blog post updated successfully');
+        navigate(`/blog/${slug}`, { replace: true });
       } else {
         // Create new post
-        const newPost = await createArticle({
+        console.log('Creating new blog post with data:', {
+          title: values.title,
+          excerpt: values.excerpt.substring(0, 30) + '...',
+          coverImage: values.coverImage,
+          category: values.category,
+          tags: tagsArray,
+          authorId: user.id,
+          authorName: user.name
+        });
+        
+        const newPostData = {
           title: values.title,
           excerpt: values.excerpt,
           content: values.content,
@@ -127,13 +142,26 @@ const ArticleEditor = () => {
           featured: values.featured || false,
           authorId: user.id,
           authorName: user.name,
-          authorAvatar: user.avatar,
-        });
-        navigate(`/article/${newPost.slug}`, { replace: true });
+          authorAvatar: user.avatar || '',
+        };
+        
+        const newPost = await createArticle(newPostData);
+        console.log('New post created:', newPost);
+        toast.success('Blog post created successfully');
+        
+        if (newPost && newPost.slug) {
+          navigate(`/blog/${newPost.slug}`, { replace: true });
+        } else {
+          throw new Error('Created post is missing slug');
+        }
       }
     } catch (error) {
-      console.error('Error saving post:', error);
-      toast.error('Error saving your post');
+      console.error('Error saving blog post:', error);
+      if (error instanceof Error) {
+        toast.error(`Error saving your blog post: ${error.message}`);
+      } else {
+        toast.error('Error saving your blog post');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -162,10 +190,10 @@ const ArticleEditor = () => {
       <Card>
         <CardHeader>
           <h1 className="text-3xl font-bold">
-            {isEditing ? 'Edit Post' : 'Create New Post'}
+            {isEditing ? 'Edit Blog Post' : 'Create New Blog Post'}
           </h1>
           <p className="text-muted-foreground">
-            {isEditing ? 'Update your post with the latest content' : 'Share your knowledge with the world'}
+            {isEditing ? 'Update your blog post with the latest content' : 'Share your knowledge with the world'}
           </p>
         </CardHeader>
         <CardContent>
@@ -185,7 +213,7 @@ const ArticleEditor = () => {
                   <FormItem>
                     <FormLabel>Title</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter post title" {...field} />
+                      <Input placeholder="Enter blog post title" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -200,7 +228,7 @@ const ArticleEditor = () => {
                     <FormLabel>Excerpt</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="Brief summary of your post" 
+                        placeholder="Brief summary of your blog post" 
                         {...field} 
                         className="h-20"
                       />
@@ -218,7 +246,7 @@ const ArticleEditor = () => {
                     <FormLabel>Content</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="Your post content (Markdown supported)" 
+                        placeholder="Your blog post content (Markdown supported)" 
                         {...field} 
                         className="min-h-[300px]"
                       />
@@ -288,7 +316,7 @@ const ArticleEditor = () => {
                     <div className="space-y-1 leading-none">
                       <FormLabel>Featured Post</FormLabel>
                       <p className="text-sm text-muted-foreground">
-                        This post will be displayed prominently on the homepage
+                        This blog post will be displayed prominently on the homepage
                       </p>
                     </div>
                   </FormItem>
@@ -309,7 +337,7 @@ const ArticleEditor = () => {
                 <Button type="submit" disabled={isLoading}>
                   {isLoading 
                     ? isEditing ? 'Updating...' : 'Publishing...' 
-                    : isEditing ? 'Update Post' : 'Publish Post'
+                    : isEditing ? 'Update Blog Post' : 'Publish Blog Post'
                   }
                 </Button>
               </div>
@@ -321,4 +349,4 @@ const ArticleEditor = () => {
   );
 };
 
-export default ArticleEditor;
+export default BlogPostEditor; 

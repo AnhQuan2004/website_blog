@@ -82,7 +82,7 @@ const MarkdownUploader: React.FC<MarkdownUploaderProps> = ({
       <div className="flex flex-col items-center space-y-2">
         <FileText className="h-8 w-8 text-gray-500" />
         <p className="text-sm text-gray-500">
-          Upload a markdown file to quickly create a post
+          Upload a markdown file to quickly create a blog post
         </p>
         <Button
           onClick={handleButtonClick}
@@ -98,4 +98,4 @@ const MarkdownUploader: React.FC<MarkdownUploaderProps> = ({
   );
 };
 
-export default MarkdownUploader;
+export default MarkdownUploader; 

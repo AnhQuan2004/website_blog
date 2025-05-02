@@ -54,7 +54,7 @@ const Index = () => {
           <div className="animate-slide-in-bottom max-w-3xl mx-auto space-y-6">
             <h1 className="text-title">Discover the Future of Technology</h1>
             <p className="text-subtitle text-muted-foreground">
-              Insightful articles, tutorials, and analyses on the latest trends
+              Insightful posts, tutorials, and analyses on the latest trends
               in technology, programming, AI, and digital innovation.
             </p>
             <div className="flex flex-wrap justify-center gap-4 pt-4">
@@ -88,7 +88,7 @@ const Index = () => {
       <section className="py-16 md:py-24">
         <div className="content-container">
           <div className="flex justify-between items-center mb-10">
-            <h2 className="text-3xl font-semibold">Featured Article</h2>
+            <h2 className="text-3xl font-semibold">Featured Post</h2>
           </div>
 
           {featuredLoading ? (
@@ -106,12 +106,12 @@ const Index = () => {
       <section className="py-16 md:py-20">
         <div className="content-container">
           <div className="flex justify-between items-center mb-10">
-            <h2 className="text-3xl font-semibold">Latest Articles</h2>
+            <h2 className="text-3xl font-semibold">Latest Posts</h2>
             <Link
-              to="/articles"
+              to="/blog"
               className="group flex items-center text-sm font-medium hover:text-primary transition-colors"
             >
-              View all articles
+              View all posts
               <ArrowRight
                 size={16}
                 className="ml-1 transition-transform group-hover:translate-x-1"
@@ -149,7 +149,7 @@ const Index = () => {
               Subscribe to our newsletter
             </h2>
             <p className="text-muted-foreground mb-8 md:text-lg">
-              Get the latest articles, tutorials, and updates delivered straight
+              Get the latest posts, tutorials, and updates delivered straight
               to your inbox.
             </p>
 

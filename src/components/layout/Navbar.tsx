@@ -17,7 +17,7 @@ import {
 
 const navLinks = [
   { name: "Home", href: "/" },
-  { name: "Articles", href: "/articles" },
+  { name: "Blog", href: "/blog" },
   { name: "News", href: "/news" },
   {
     name: "Categories",
@@ -33,6 +33,7 @@ const navLinks = [
       { name: "Quantum Computing", href: "/category/quantum-computing" },
     ],
   },
+  { name: "Practice Prompting", href: "/practice-prompting" },
   { name: "About", href: "/about" },
 ];
 

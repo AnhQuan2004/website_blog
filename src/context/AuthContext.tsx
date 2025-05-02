@@ -53,6 +53,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsLoading(true);
     
     try {
+      console.log(`Attempting to login with email: ${email}`);
+      
       const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: {
@@ -61,11 +63,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         body: JSON.stringify({ email, password }),
       });
       
+      // Check for non-JSON responses (like HTML error pages)
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("Non-JSON response received:", await response.text().catch(() => "Could not get response text"));
+        throw new Error("Server returned an invalid response. Please try again later.");
+      }
+      
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.message || "Login failed");
+        console.error("Login failed:", data);
+        throw new Error(data.message || data.error || "Login failed");
       }
+      
+      if (!data.token) {
+        console.error("No token in response:", data);
+        throw new Error("Authentication token missing from response");
+      }
+      
+      console.log("Login successful:", { userId: data.user?.id });
       
       // Save token and user data
       localStorage.setItem("auth_token", data.token);
@@ -95,6 +112,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         },
         body: JSON.stringify({ name, email, password }),
       });
+      
+      // Check for non-JSON responses (like HTML error pages)
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned an invalid response. Please try again later.");
+      }
       
       const data = await response.json();
       

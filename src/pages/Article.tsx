@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BlurImage from "@/components/ui/BlurImage";
 // import { getArticleBySlug, getArticles, formatDate } from "@/utils/api";
 import { useToast } from "@/hooks/use-toast";
-import ArticleCard from "@/components/articles/ArticleCard";
+import BlogPostCard from "@/components/blog/BlogPostCard";
 import { marked } from "marked";
 import CommentForm from "@/components/comments/CommentForm";
 import CommentList from "@/components/comments/CommentList";
@@ -45,31 +45,58 @@ const Article = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
 
-  // Fetch article data
+  // Log the slug parameter for debugging
+  useEffect(() => {
+    console.log('Article component mounted with slug:', slug);
+  }, [slug]);
+
+  // Fetch blog post data
   const {
-    data: article,
+    data: blogPost,
     isLoading,
     error,
+    refetch
   } = useQuery({
-    queryKey: ["article", slug],
-    queryFn: () => getArticleBySlug(slug || ""),
+    queryKey: ["blogPost", slug],
+    queryFn: async () => {
+      if (!slug) {
+        throw new Error("No slug provided");
+      }
+      
+      console.log(`Fetching blog post with slug: ${slug}`);
+      
+      try {
+        const post = await getArticleBySlug(slug);
+        if (!post) {
+          console.error(`Blog post with slug '${slug}' not found`);
+          throw new Error("Blog post not found");
+        }
+        console.log("Loaded blog post:", post.title);
+        return post;
+      } catch (error) {
+        console.error("Error in query function:", error);
+        throw error;
+      }
+    },
     enabled: !!slug,
+    retry: 1,
+    retryDelay: 1000
   });
 
-  // Fetch related articles
-  const { data: relatedArticles } = useQuery({
-    queryKey: ["articles", "related", article?.category],
+  // Fetch related blog posts
+  const { data: relatedBlogPosts } = useQuery({
+    queryKey: ["blogPosts", "related", blogPost?.category],
     queryFn: () => getArticles({ limit: 3 }),
-    enabled: !!article,
+    enabled: !!blogPost,
   });
 
   // Fetch comments
   useEffect(() => {
     const loadComments = async () => {
-      if (article) {
+      if (blogPost) {
         setIsLoadingComments(true);
         try {
-          const fetchedComments = await getCommentsByArticleId(article.id);
+          const fetchedComments = await getCommentsByArticleId(blogPost.id);
           setComments(fetchedComments);
         } catch (error) {
           console.error("Error loading comments:", error);
@@ -85,7 +112,7 @@ const Article = () => {
     };
 
     loadComments();
-  }, [article, toast]);
+  }, [blogPost, toast]);
 
   // Convert markdown to HTML
   const renderMarkdown = (content: string) => {
@@ -119,10 +146,10 @@ const Article = () => {
   const handleLike = () => {
     setHasLiked(!hasLiked);
     toast({
-      title: hasLiked ? "Removed like" : "Article liked",
+      title: hasLiked ? "Removed like" : "Blog post liked",
       description: hasLiked
-        ? "You have removed your like from this article"
-        : "Thank you for liking this article!",
+        ? "You have removed your like from this blog post"
+        : "Thank you for liking this blog post!",
       duration: 3000,
     });
   };
@@ -131,10 +158,10 @@ const Article = () => {
   const handleBookmark = () => {
     setIsBookmarked(!isBookmarked);
     toast({
-      title: isBookmarked ? "Removed from bookmarks" : "Article bookmarked",
+      title: isBookmarked ? "Removed from bookmarks" : "Blog post bookmarked",
       description: isBookmarked
-        ? "This article has been removed from your bookmarks"
-        : "This article has been added to your bookmarks",
+        ? "This blog post has been removed from your bookmarks"
+        : "This blog post has been added to your bookmarks",
       duration: 3000,
     });
   };
@@ -143,13 +170,13 @@ const Article = () => {
   const handleShare = () => {
     // Get the base URL of the application
     const baseUrl = window.location.origin;
-    // Construct the absolute URL for the article
-    const shareUrl = `${baseUrl}/article/${slug}`;
+    // Construct the absolute URL for the blog post
+    const shareUrl = `${baseUrl}/blog/${slug}`;
     if (navigator.share) {
       navigator
         .share({
-          title: article?.title,
-          text: article?.excerpt,
+          title: blogPost?.title,
+          text: blogPost?.excerpt,
           url: shareUrl,
         })
         .catch(() => {
@@ -157,7 +184,7 @@ const Article = () => {
           navigator.clipboard.writeText(shareUrl);
           toast({
             title: "Link copied to clipboard",
-            description: "You can now share this article with others",
+            description: "You can now share this blog post with others",
             duration: 3000,
           });
         });
@@ -166,7 +193,7 @@ const Article = () => {
       navigator.clipboard.writeText(shareUrl);
       toast({
         title: "Link copied to clipboard",
-        description: "You can now share this article with others",
+        description: "You can now share this blog post with others",
         duration: 3000,
       });
     }
@@ -174,9 +201,9 @@ const Article = () => {
 
   // Handle comment added
   const handleCommentAdded = async () => {
-    if (article) {
+    if (blogPost) {
       try {
-        const updatedComments = await getCommentsByArticleId(article.id);
+        const updatedComments = await getCommentsByArticleId(blogPost.id);
         setComments(updatedComments);
         toast({
           title: "Comment posted",
@@ -189,10 +216,10 @@ const Article = () => {
   };
 
   useEffect(() => {
-    // Scroll to top when article loads
+    // Scroll to top when blog post loads
     window.scrollTo(0, 0);
 
-    // Handle 404 if article not found
+    // Handle 404 if blog post not found
     if (error) {
       navigate("/not-found");
     }
@@ -215,7 +242,7 @@ const Article = () => {
     );
   }
 
-  if (!article) {
+  if (!blogPost) {
     return null; // Let the useEffect handle navigation
   }
 
@@ -225,8 +252,8 @@ const Article = () => {
       <section className="w-full aspect-[21/9] md:aspect-[3/1] relative animate-fade-in">
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent z-10"></div>
         <BlurImage
-          src={article.coverImage}
-          alt={article.title}
+          src={blogPost.coverImage}
+          alt={blogPost.title}
           className="w-full h-full object-cover"
           priority
         />
@@ -244,24 +271,24 @@ const Article = () => {
 
             <div className="flex flex-wrap gap-3 mb-3">
               <span className="bg-primary/10 backdrop-blur-sm text-primary text-xs font-medium px-3 py-1 rounded-full">
-                {article.category}
+                {blogPost.category}
               </span>
               <span className="bg-background/70 backdrop-blur-sm text-xs font-medium px-3 py-1 rounded-full flex items-center">
                 <Clock size={12} className="mr-1" />
-                {article.readTime} min read
+                {blogPost.readTime} min read
               </span>
               <span className="bg-background/70 backdrop-blur-sm text-xs font-medium px-3 py-1 rounded-full flex items-center">
                 <Calendar size={12} className="mr-1" />
-                {formatDate(article.createdAt)}
+                {formatDate(blogPost.createdAt)}
               </span>
               <span className="bg-background/70 backdrop-blur-sm text-xs font-medium px-3 py-1 rounded-full flex items-center">
                 <Eye size={12} className="mr-1" />
-                {article.views} views
+                {blogPost.views} views
               </span>
             </div>
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold text-balance max-w-4xl">
-              {article.title}
+              {blogPost.title}
             </h1>
           </div>
         </div>
@@ -322,32 +349,32 @@ const Article = () => {
             <div className="flex items-center space-x-4 my-8">
               <Avatar className="h-12 w-12">
                 <AvatarImage
-                  src={article.authorAvatar}
-                  alt={article.authorName}
+                  src={blogPost.authorAvatar}
+                  alt={blogPost.authorName}
                 />
-                <AvatarFallback>{article.authorName.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{blogPost.authorName.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-medium">{article.authorName}</p>
+                <p className="font-medium">{blogPost.authorName}</p>
                 <p className="text-sm text-muted-foreground">
-                  Published {formatDate(article.createdAt)}
+                  Published {formatDate(blogPost.createdAt)}
                 </p>
               </div>
             </div>
 
             <Separator className="my-6" />
 
-            {/* Article Content */}
+            {/* Blog Post Content */}
             <article className="prose prose-lg prose-headings:font-medium prose-headings:tracking-tight prose-h3:text-xl prose-h3:sm:text-2xl dark:prose-invert max-w-none pb-8 custom-markdown">
               <div
-                dangerouslySetInnerHTML={renderMarkdown(article.content)}
+                dangerouslySetInnerHTML={renderMarkdown(blogPost.content)}
                 className="markdown-content"
               />
             </article>
 
             {/* Tags */}
             <div className="flex flex-wrap gap-2 my-8">
-              {article.tags.map((tag) => (
+              {blogPost.tags.map((tag) => (
                 <Link
                   key={tag}
                   to={`/tag/${tag.toLowerCase()}`}
@@ -365,7 +392,7 @@ const Article = () => {
               <h2 className="text-2xl font-semibold mb-6">Comments</h2>
 
               <CommentForm
-                articleId={article.id}
+                articleId={blogPost.id}
                 onCommentAdded={handleCommentAdded}
               />
 
@@ -395,17 +422,17 @@ const Article = () => {
         </div>
       </div>
 
-      {/* Related Articles */}
+      {/* Related Blog Posts */}
       <section className="bg-secondary py-12 mt-12">
         <div className="content-container">
-          <h2 className="text-2xl font-semibold mb-8">Related Articles</h2>
+          <h2 className="text-2xl font-semibold mb-8">Related Blog Posts</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {relatedArticles
-              ?.filter((a) => a.id !== article.id)
+            {relatedBlogPosts
+              ?.filter((a) => a.id !== blogPost.id)
               .slice(0, 3)
-              .map((relatedArticle) => (
-                <ArticleCard key={relatedArticle.id} article={relatedArticle} />
+              .map((relatedBlogPost) => (
+                <BlogPostCard key={relatedBlogPost.id} article={relatedBlogPost} />
               ))}
           </div>
         </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -96,8 +95,8 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
             {isAdmin 
-              ? "Manage all articles and your account" 
-              : "Manage your articles and account"}
+              ? "Manage all posts and your account" 
+              : "Manage your posts and account"}
           </p>
           {isAdmin && (
             <div className="mt-2 inline-flex items-center px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
@@ -107,9 +106,9 @@ const Dashboard = () => {
           )}
         </div>
         <Button asChild>
-          <Link to="/create-article" className="flex items-center gap-2">
+          <Link to="/create-post" className="flex items-center gap-2">
             <Plus size={16} />
-            Create New Article
+            Create New Post
           </Link>
         </Button>
       </div>
@@ -126,7 +125,7 @@ const Dashboard = () => {
               }`}
               onClick={() => setViewMode('my-articles')}
             >
-              My Articles
+              My Posts
             </button>
             <button
               type="button"
@@ -137,7 +136,7 @@ const Dashboard = () => {
               }`}
               onClick={() => setViewMode('all-articles')}
             >
-              All Articles
+              All Posts
             </button>
           </div>
         </div>
@@ -147,31 +146,31 @@ const Dashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle>
-              {viewMode === 'my-articles' ? 'Your Articles' : 'All Articles'}
+              {viewMode === 'my-articles' ? 'Your Posts' : 'All Posts'}
             </CardTitle>
             <CardDescription>
               {displayedArticles.length === 0 
                 ? viewMode === 'my-articles' 
-                  ? "You haven't published any articles yet." 
-                  : "No articles have been published yet."
-                : `${viewMode === 'my-articles' ? 'You have' : 'There are'} ${displayedArticles.length} article${displayedArticles.length !== 1 ? 's' : ''}.`}
+                  ? "You haven't published any posts yet." 
+                  : "No posts have been published yet."
+                : `${viewMode === 'my-articles' ? 'You have' : 'There are'} ${displayedArticles.length} post${displayedArticles.length !== 1 ? 's' : ''}.`}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="py-8 text-center">
-                <p className="text-muted-foreground">Loading articles...</p>
+                <p className="text-muted-foreground">Loading posts...</p>
               </div>
             ) : displayedArticles.length === 0 ? (
               <div className="py-8 text-center">
                 <p className="mb-4">
                   {viewMode === 'my-articles' 
                     ? "Start sharing your knowledge with the world!" 
-                    : "No articles have been published yet."}
+                    : "No posts have been published yet."}
                 </p>
                 {viewMode === 'my-articles' && (
                   <Button asChild>
-                    <Link to="/create-article">Create Your First Article</Link>
+                    <Link to="/create-post">Create Your First Post</Link>
                   </Button>
                 )}
               </div>
@@ -208,7 +207,7 @@ const Dashboard = () => {
                         {(user?.id === article.authorId || isAdmin) && (
                           <>
                             <Button variant="outline" size="sm" asChild>
-                              <Link to={`/edit-article/${article.slug}`}>
+                              <Link to={`/edit-post/${article.slug}`}>
                                 <Pencil size={16} className="mr-1" /> Edit
                               </Link>
                             </Button>

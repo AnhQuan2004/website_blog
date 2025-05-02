@@ -1,19 +1,21 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Plus } from 'lucide-react';
 import { getArticles, Article } from '@/utils/api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import ArticleCard from '@/components/articles/ArticleCard';
+import BlogPostCard from '@/components/blog/BlogPostCard';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 
-const Articles = () => {
+const Blog = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  const { isAuthenticated } = useAuth();
 
   // Fetch all articles
   const { data: articles = [], isLoading } = useQuery({
@@ -50,12 +52,25 @@ const Articles = () => {
   return (
     <div className="min-h-[calc(100vh-200px)] py-12 pb-20">
       <div className="content-container">
-        <div className="mb-12 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Articles</h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Discover our collection of articles covering the latest trends and insights in technology, 
-            web development, cybersecurity, and more.
-          </p>
+        <div className="mb-12 flex flex-col items-center">
+          <div className="text-center">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4">Blog</h1>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Discover our collection of posts covering the latest trends and insights in technology, 
+              web development, cybersecurity, and more.
+            </p>
+          </div>
+          
+          {isAuthenticated && (
+            <div className="mt-6">
+              <Button asChild>
+                <Link to="/create-post" className="flex items-center gap-2">
+                  <Plus size={16} />
+                  Create New Post
+                </Link>
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Search and Filter Bar */}
@@ -63,7 +78,7 @@ const Articles = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
             <Input
-              placeholder="Search articles..."
+              placeholder="Search posts..."
               className="pl-10"
               value={searchTerm}
               onChange={(e) => {
@@ -111,7 +126,7 @@ const Articles = () => {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {currentItems.map((article) => (
-                <ArticleCard key={article.id} article={article} />
+                <BlogPostCard key={article.id} article={article} />
               ))}
             </div>
             
@@ -151,22 +166,32 @@ const Articles = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-full mb-4">
               <Filter className="text-muted-foreground" size={24} />
             </div>
-            <h3 className="text-xl font-medium mb-2">No articles found</h3>
-            <p className="text-muted-foreground">
+            <h3 className="text-xl font-medium mb-2">No posts found</h3>
+            <p className="text-muted-foreground mb-4">
               Try adjusting your search or filter to find what you're looking for.
             </p>
-            {searchTerm || selectedCategory ? (
-              <Button 
-                variant="outline" 
-                className="mt-4"
-                onClick={() => {
-                  setSearchTerm('');
-                  setSelectedCategory(null);
-                }}
-              >
-                Clear filters
-              </Button>
-            ) : null}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              {searchTerm || selectedCategory ? (
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedCategory(null);
+                  }}
+                >
+                  Clear filters
+                </Button>
+              ) : null}
+              
+              {isAuthenticated && !searchTerm && !selectedCategory && (
+                <Button asChild>
+                  <Link to="/create-post" className="flex items-center gap-2">
+                    <Plus size={16} />
+                    Create New Post
+                  </Link>
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -174,4 +199,4 @@ const Articles = () => {
   );
 };
 
-export default Articles;
+export default Blog; 

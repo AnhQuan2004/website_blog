@@ -9,24 +9,18 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     proxy: {
-      // Proxy API requests to our authentication routes
-      '/api/auth/signup': {
+      // Proxy API requests to our backend server
+      '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        rewrite: (path) => path // Keep the path as is, don't rewrite
       },
-      '/api/auth/login': {
+      // Add specific proxy for blog API endpoints to make sure they're properly forwarded
+      '/api/blog': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '')
-      },
-      '/api/user': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        secure: false
       }
     }
   },

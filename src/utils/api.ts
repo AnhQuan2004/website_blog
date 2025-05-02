@@ -1,6 +1,36 @@
 // Mock data for initial development
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import axios from 'axios';
+
+// Set up axios interceptors for debugging
+axios.interceptors.request.use(
+  (config) => {
+    console.log(`Axios Request: ${config.method?.toUpperCase()} ${config.url}`);
+    return config;
+  },
+  (error) => {
+    console.error('Axios Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+axios.interceptors.response.use(
+  (response) => {
+    console.log(`Axios Response: ${response.status} from ${response.config.url}`);
+    return response;
+  },
+  (error) => {
+    if (error.response) {
+      console.error(`Axios Error ${error.response.status}: ${error.response.data?.error || error.message}`);
+    } else if (error.request) {
+      console.error('Axios Error: No response received', error.request);
+    } else {
+      console.error('Axios Error:', error.message);
+    }
+    return Promise.reject(error);
+  }
+);
 
 export type Article = {
   id: string;
@@ -23,17 +53,40 @@ export type Article = {
 
 export type Comment = {
   id: string;
-  content: string;
   articleId: string;
+  content: string;
   authorId: string;
   authorName: string;
   authorAvatar?: string;
   createdAt: string;
-  parentId?: string;
+  updatedAt: string;
+};
+
+// Safe check for window object to avoid SSR issues
+const isBrowser = typeof window !== 'undefined';
+
+// Helper function to get authentication token
+const getAuthToken = (): string | null => {
+  if (!isBrowser) return null;
+  try {
+    return localStorage.getItem('auth_token');
+  } catch (error) {
+    console.error('Error accessing localStorage:', error);
+    return null;
+  }
+};
+
+// Helper function to get auth headers
+const getAuthHeaders = () => {
+  const token = getAuthToken();
+  // Make sure we're returning proper authorization header with Bearer token
+  return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
 // Initialize local storage data or use default mocks
 const initLocalStorageData = () => {
+  if (!isBrowser) return;
+  
   // Default mock articles
   const DEFAULT_MOCK_ARTICLES: Article[] = [
     {
@@ -246,7 +299,8 @@ The quantum revolution is coming. By understanding the implications and preparin
       authorId: '2',
       authorName: 'Jane Smith',
       authorAvatar: 'https://i.pravatar.cc/150?u=jane',
-      createdAt: new Date(2023, 10, 16).toISOString()
+      createdAt: new Date(2023, 10, 16).toISOString(),
+      updatedAt: new Date(2023, 10, 16).toISOString()
     },
     {
       id: '2',
@@ -255,7 +309,8 @@ The quantum revolution is coming. By understanding the implications and preparin
       authorId: '3',
       authorName: 'Robert Johnson',
       authorAvatar: 'https://i.pravatar.cc/150?u=robert',
-      createdAt: new Date(2023, 10, 17).toISOString()
+      createdAt: new Date(2023, 10, 17).toISOString(),
+      updatedAt: new Date(2023, 10, 17).toISOString()
     },
     {
       id: '3',
@@ -264,7 +319,8 @@ The quantum revolution is coming. By understanding the implications and preparin
       authorId: '4',
       authorName: 'Emily Chen',
       authorAvatar: 'https://i.pravatar.cc/150?u=emily',
-      createdAt: new Date(2023, 10, 18).toISOString()
+      createdAt: new Date(2023, 10, 18).toISOString(),
+      updatedAt: new Date(2023, 10, 18).toISOString()
     }
   ];
 
@@ -279,24 +335,52 @@ The quantum revolution is coming. By understanding the implications and preparin
   }
 };
 
-// Initialize localStorage on module load
-initLocalStorageData();
+// Initialize localStorage on module load, safely
+if (isBrowser) {
+  try {
+    initLocalStorageData();
+  } catch (error) {
+    console.error('Error initializing local storage data:', error);
+  }
+}
 
 // Helper functions to get and set data in localStorage
 const getMockArticles = (): Article[] => {
-  return JSON.parse(localStorage.getItem('mock_articles') || '[]');
+  if (!isBrowser) return [];
+  try {
+    return JSON.parse(localStorage.getItem('mock_articles') || '[]');
+  } catch (error) {
+    console.error('Error getting mock articles:', error);
+    return [];
+  }
 };
 
 const setMockArticles = (articles: Article[]): void => {
-  localStorage.setItem('mock_articles', JSON.stringify(articles));
+  if (!isBrowser) return;
+  try {
+    localStorage.setItem('mock_articles', JSON.stringify(articles));
+  } catch (error) {
+    console.error('Error setting mock articles:', error);
+  }
 };
 
 const getMockComments = (): Comment[] => {
-  return JSON.parse(localStorage.getItem('mock_comments') || '[]');
+  if (!isBrowser) return [];
+  try {
+    return JSON.parse(localStorage.getItem('mock_comments') || '[]');
+  } catch (error) {
+    console.error('Error getting mock comments:', error);
+    return [];
+  }
 };
 
 const setMockComments = (comments: Comment[]): void => {
-  localStorage.setItem('mock_comments', JSON.stringify(comments));
+  if (!isBrowser) return;
+  try {
+    localStorage.setItem('mock_comments', JSON.stringify(comments));
+  } catch (error) {
+    console.error('Error setting mock comments:', error);
+  }
 };
 
 // Utility function to generate a slug from a title
@@ -319,219 +403,443 @@ const calculateReadTime = (content: string): number => {
   return Math.ceil(wordCount / wordsPerMinute);
 };
 
-// API functions for articles
-export const getArticles = async (params: { featured?: boolean; limit?: number; category?: string; tag?: string } = {}): Promise<Article[]> => {
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  let articles = getMockArticles();
-  
-  // Filter featured articles if requested
-  if (params.featured !== undefined) {
-    articles = articles.filter(article => article.featured === params.featured);
+// Utility function to format dates
+export const formatDate = (dateString: string) => {
+  try {
+    const date = new Date(dateString);
+    return formatDistanceToNow(date, { addSuffix: true });
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return dateString;
   }
-
-  // Filter by category if provided
-  if (params.category) {
-    articles = articles.filter(article => 
-      article.category.toLowerCase() === params.category?.toLowerCase()
-    );
-  }
-
-  // Filter by tag if provided
-  if (params.tag) {
-    articles = articles.filter(article => 
-      article.tags.some(tag => tag.toLowerCase() === params.tag?.toLowerCase())
-    );
-  }
-  
-  // Sort by date (newest first)
-  articles.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  
-  // Limit results if requested
-  if (params.limit) {
-    articles = articles.slice(0, params.limit);
-  }
-  
-  return articles;
 };
 
+// API base URL - check for API URL
+const API_BASE_URL = ''; // Use relative path instead of hardcoded 'http://localhost:3000'
+
+// Determine whether to use mock data or real API
+// Set to false to use the MongoDB API 
+const USE_MOCK_DATA = false;
+
+// Function to get all blog posts with filtering options
+export const getArticles = async (options: {
+  limit?: number;
+  page?: number;
+  category?: string;
+  tag?: string;
+  featured?: boolean;
+  sort?: string;
+  order?: 'asc' | 'desc';
+} = {}) => {
+  if (USE_MOCK_DATA) {
+    // Use mock data with error handling
+    try {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      let articles = getMockArticles();
+      if (!articles || !articles.length) {
+        console.warn('No mock articles available, check localStorage or initialization');
+        return [];
+      }
+      
+      // Apply filters
+      if (options.category) {
+        articles = articles.filter(article => 
+          article.category.toLowerCase() === options.category?.toLowerCase()
+        );
+      }
+      
+      if (options.tag) {
+        articles = articles.filter(article => 
+          article.tags.some(tag => tag.toLowerCase() === options.tag?.toLowerCase())
+        );
+      }
+      
+      if (options.featured !== undefined) {
+        articles = articles.filter(article => article.featured === options.featured);
+      }
+      
+      // Sort articles
+      const sortField = options.sort || 'createdAt';
+      const sortOrder = options.order === 'asc' ? 1 : -1;
+      
+      articles.sort((a, b) => {
+        if (sortField === 'createdAt') {
+          return sortOrder * (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        }
+        if (a[sortField] < b[sortField]) return -1 * sortOrder;
+        if (a[sortField] > b[sortField]) return 1 * sortOrder;
+        return 0;
+      });
+      
+      // Apply pagination
+      const page = options.page || 1;
+      const limit = options.limit || articles.length;
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      
+      return articles.slice(startIndex, endIndex);
+    } catch (error) {
+      console.error('Error using mock article data:', error);
+      return [];
+    }
+  }
+  
+  try {
+    // Build query string from options
+    const queryParams = new URLSearchParams();
+    
+    if (options.limit) queryParams.append('limit', options.limit.toString());
+    if (options.page) queryParams.append('page', options.page.toString());
+    if (options.category) queryParams.append('category', options.category);
+    if (options.tag) queryParams.append('tag', options.tag);
+    if (options.featured !== undefined) queryParams.append('featured', options.featured.toString());
+    if (options.sort) queryParams.append('sort', options.sort);
+    if (options.order) queryParams.append('order', options.order);
+    
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    
+    // Make API request
+    const response = await axios.get(`${API_BASE_URL}/api/blog${queryString}`);
+    
+    return response.data.posts;
+  } catch (error) {
+    console.error('Error fetching blog posts:', error);
+    if (isBrowser) {
+      toast.error('Failed to fetch blog posts');
+    }
+    return [];
+  }
+};
+
+// Function to get a single blog post by slug
 export const getArticleBySlug = async (slug: string): Promise<Article | null> => {
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 800));
+  if (USE_MOCK_DATA) {
+    // Use mock data
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+    
+    const articles = getMockArticles();
+    const article = articles.find(article => article.slug === slug);
+    
+    if (article) {
+      // Increment views
+      const updatedArticle = { ...article, views: article.views + 1 };
+      setMockArticles(articles.map(a => a.id === article.id ? updatedArticle : a));
+      return updatedArticle;
+    }
+    
+    return null;
+  }
   
-  const articles = getMockArticles();
-  const article = articles.find(article => article.slug === slug);
-  return article || null;
+  try {
+    if (!slug) {
+      console.error('getArticleBySlug called with empty slug');
+      return null;
+    }
+    
+    console.log(`Fetching article with slug: ${slug}`);
+    const response = await axios.get(`${API_BASE_URL}/api/blog/${slug}`);
+    console.log('API response:', response.status, response.statusText);
+    
+    // Make sure we have data and it has the right shape
+    if (!response.data) {
+      console.error('API returned empty response for slug:', slug);
+      return null;
+    }
+    
+    // If response.data doesn't have the expected fields, try a different property
+    const article = response.data;
+    
+    // Log the article for debugging
+    console.log('Received article:', {
+      id: article.id || article._id,
+      title: article.title,
+      slug: article.slug
+    });
+    
+    return article;
+  } catch (error) {
+    console.error('Error fetching blog post:', error);
+    
+    // More detailed error logging
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        console.error('Error response:', error.response.status, error.response.data);
+      } else if (error.request) {
+        console.error('No response received for request:', error.request);
+      }
+    }
+    
+    toast.error('Failed to fetch blog post');
+    return null;
+  }
 };
 
+// Function to create a new blog post
 export const createArticle = async (articleData: Omit<Article, 'id' | 'slug' | 'createdAt' | 'updatedAt' | 'readTime' | 'views'>): Promise<Article> => {
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 800));
+  if (USE_MOCK_DATA) {
+    // Use mock data
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+    
+    const now = new Date().toISOString();
+    const newArticle: Article = {
+      id: generateId(),
+      slug: generateSlug(articleData.title),
+      createdAt: now,
+      updatedAt: now,
+      readTime: calculateReadTime(articleData.content),
+      views: 0,
+      ...articleData
+    };
+    
+    const articles = getMockArticles();
+    articles.push(newArticle);
+    setMockArticles(articles);
+    
+    toast.success('Blog post created successfully');
+    return newArticle;
+  }
   
-  const now = new Date().toISOString();
-  const newArticle: Article = {
-    id: generateId(),
-    slug: generateSlug(articleData.title),
-    createdAt: now,
-    updatedAt: now,
-    readTime: calculateReadTime(articleData.content),
-    views: 0,
-    ...articleData
-  };
-  
-  // Add to mock database
-  const articles = getMockArticles();
-  articles.push(newArticle);
-  setMockArticles(articles);
-  
-  toast.success('Article created successfully');
-  return newArticle;
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      toast.error('You must be logged in to create a blog post');
+      throw new Error('Authentication required');
+    }
+    
+    console.log('Creating article with auth headers:', {
+      headers: getAuthHeaders()
+    });
+    
+    const response = await axios.post(`${API_BASE_URL}/api/blog`, articleData, {
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    toast.success('Blog post created successfully');
+    return response.data;
+  } catch (error: any) {
+    console.error('Error creating blog post:', error);
+    
+    // More detailed error handling
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      const errorMessage = error.response.data?.error || 'Failed to create blog post';
+      toast.error(errorMessage);
+    } else if (error.request) {
+      // The request was made but no response was received
+      toast.error('No response from server. Please check your connection.');
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      toast.error(`Error: ${error.message}`);
+    }
+    
+    throw error;
+  }
 };
 
+// Function to update an existing blog post
 export const updateArticle = async (id: string, articleData: Partial<Omit<Article, 'id' | 'createdAt'>>): Promise<Article | null> => {
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 800));
+  if (USE_MOCK_DATA) {
+    // Use mock data
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+    
+    const articles = getMockArticles();
+    const articleIndex = articles.findIndex(article => article.id === id);
+    
+    if (articleIndex === -1) {
+      toast.error('Blog post not found');
+      return null;
+    }
+    
+    // Generate new slug if title was updated
+    let updatedSlug = articles[articleIndex].slug;
+    if (articleData.title) {
+      updatedSlug = generateSlug(articleData.title);
+    }
+    
+    // Calculate new readTime if content was updated
+    let updatedReadTime = articles[articleIndex].readTime;
+    if (articleData.content) {
+      updatedReadTime = calculateReadTime(articleData.content);
+    }
+    
+    // Update the article
+    const updatedArticle: Article = {
+      ...articles[articleIndex],
+      ...articleData,
+      slug: updatedSlug,
+      readTime: updatedReadTime,
+      updatedAt: new Date().toISOString()
+    };
+    
+    articles[articleIndex] = updatedArticle;
+    setMockArticles(articles);
+    
+    toast.success('Blog post updated successfully');
+    return updatedArticle;
+  }
   
-  const articles = getMockArticles();
-  const articleIndex = articles.findIndex(article => article.id === id);
-  
-  if (articleIndex === -1) {
-    toast.error('Article not found');
+  try {
+    // First fetch the blog post to get its slug
+    const response = await axios.get(`${API_BASE_URL}/api/blog/${articleData.slug || id}`, {
+      headers: { ...getAuthHeaders() }
+    });
+    const blogPost = response.data;
+    
+    // Use the existing slug for the update
+    const updateResponse = await axios.put(`${API_BASE_URL}/api/blog/${blogPost.slug}`, articleData, {
+      headers: { ...getAuthHeaders() }
+    });
+    
+    toast.success('Blog post updated successfully');
+    return updateResponse.data;
+  } catch (error) {
+    console.error('Error updating blog post:', error);
+    toast.error('Failed to update blog post');
     return null;
   }
-  
-  // Generate new slug if title was updated
-  let updatedSlug = articles[articleIndex].slug;
-  if (articleData.title) {
-    updatedSlug = generateSlug(articleData.title);
-  }
-  
-  // Calculate new readTime if content was updated
-  let updatedReadTime = articles[articleIndex].readTime;
-  if (articleData.content) {
-    updatedReadTime = calculateReadTime(articleData.content);
-  }
-  
-  // Update the article
-  const updatedArticle: Article = {
-    ...articles[articleIndex],
-    ...articleData,
-    slug: updatedSlug,
-    readTime: updatedReadTime,
-    updatedAt: new Date().toISOString()
-  };
-  
-  articles[articleIndex] = updatedArticle;
-  setMockArticles(articles);
-  
-  toast.success('Article updated successfully');
-  return updatedArticle;
 };
 
-export const deleteArticle = async (id: string): Promise<boolean> => {
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 800));
+// Function to delete a blog post
+export const deleteArticle = async (slug: string): Promise<boolean> => {
+  if (USE_MOCK_DATA) {
+    // Use mock data
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+    
+    const articles = getMockArticles();
+    const articleIndex = articles.findIndex(article => article.slug === slug);
+    
+    if (articleIndex === -1) {
+      toast.error('Blog post not found');
+      return false;
+    }
+    
+    const articleId = articles[articleIndex].id;
+    
+    // Remove article
+    articles.splice(articleIndex, 1);
+    setMockArticles(articles);
+    
+    // Also remove any comments for this article
+    const comments = getMockComments();
+    const updatedComments = comments.filter(comment => comment.articleId !== articleId);
+    setMockComments(updatedComments);
+    
+    toast.success('Blog post deleted successfully');
+    return true;
+  }
   
-  const articles = getMockArticles();
-  const articleIndex = articles.findIndex(article => article.id === id);
-  
-  if (articleIndex === -1) {
-    toast.error('Article not found');
+  try {
+    await axios.delete(`${API_BASE_URL}/api/blog/${slug}`, {
+      headers: { ...getAuthHeaders() }
+    });
+    toast.success('Blog post deleted successfully');
+    return true;
+  } catch (error) {
+    console.error('Error deleting blog post:', error);
+    toast.error('Failed to delete blog post');
     return false;
   }
-  
-  // Remove article from mock database
-  articles.splice(articleIndex, 1);
-  setMockArticles(articles);
-  
-  // Also remove any comments associated with this article
-  const comments = getMockComments();
-  const commentIndicesToRemove = comments
-    .map((comment, index) => comment.articleId === id ? index : -1)
-    .filter(index => index !== -1)
-    .sort((a, b) => b - a); // Sort in descending order to remove from the end first
-  
-  commentIndicesToRemove.forEach(index => comments.splice(index, 1));
-  setMockComments(comments);
-  
-  toast.success('Article deleted successfully');
-  return true;
 };
 
-// API functions for comments
+// COMMENTS API FUNCTIONS
+
+// Function to get comments for a blog post
 export const getCommentsByArticleId = async (articleId: string): Promise<Comment[]> => {
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  const comments = getMockComments();
-  return comments.filter(comment => comment.articleId === articleId);
-};
-
-export const createComment = async (commentData: Omit<Comment, 'id' | 'createdAt'>): Promise<Comment> => {
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  const newComment: Comment = {
-    id: generateId(),
-    createdAt: new Date().toISOString(),
-    ...commentData
-  };
-  
-  // Add to mock database
-  const comments = getMockComments();
-  comments.push(newComment);
-  setMockComments(comments);
-  
-  toast.success('Comment added successfully');
-  return newComment;
-};
-
-export const updateComment = async (id: string, content: string): Promise<Comment | null> => {
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  const comments = getMockComments();
-  const commentIndex = comments.findIndex(comment => comment.id === id);
-  
-  if (commentIndex === -1) {
-    toast.error('Comment not found');
-    return null;
+  if (USE_MOCK_DATA) {
+    // Use mock data
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+    
+    const comments = getMockComments();
+    return comments.filter(comment => comment.articleId === articleId);
   }
   
-  // Update the comment
-  comments[commentIndex] = {
-    ...comments[commentIndex],
-    content
-  };
-  
-  setMockComments(comments);
-  
-  toast.success('Comment updated successfully');
-  return comments[commentIndex];
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/comments?articleId=${articleId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    toast.error('Failed to fetch comments');
+    return [];
+  }
 };
 
-export const deleteComment = async (id: string): Promise<boolean> => {
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 800));
+// Function to create a new comment
+export const createComment = async (commentData: {
+  articleId: string;
+  content: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+}): Promise<Comment> => {
+  if (USE_MOCK_DATA) {
+    // Use mock data
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+    
+    const now = new Date().toISOString();
+    const newComment: Comment = {
+      id: generateId(),
+      createdAt: now,
+      updatedAt: now,
+      ...commentData
+    };
+    
+    const comments = getMockComments();
+    comments.push(newComment);
+    setMockComments(comments);
+    
+    toast.success('Comment posted successfully');
+    return newComment;
+  }
   
-  const comments = getMockComments();
-  const commentIndex = comments.findIndex(comment => comment.id === id);
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/comments`, commentData, {
+      headers: { ...getAuthHeaders() }
+    });
+    toast.success('Comment posted successfully');
+    return response.data;
+  } catch (error) {
+    console.error('Error posting comment:', error);
+    toast.error('Failed to post comment');
+    throw error;
+  }
+};
+
+// Function to delete a comment
+export const deleteComment = async (commentId: string): Promise<boolean> => {
+  if (USE_MOCK_DATA) {
+    // Use mock data
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+    
+    const comments = getMockComments();
+    const commentIndex = comments.findIndex(comment => comment.id === commentId);
+    
+    if (commentIndex === -1) {
+      toast.error('Comment not found');
+      return false;
+    }
+    
+    comments.splice(commentIndex, 1);
+    setMockComments(comments);
+    
+    toast.success('Comment deleted successfully');
+    return true;
+  }
   
-  if (commentIndex === -1) {
-    toast.error('Comment not found');
+  try {
+    await axios.delete(`${API_BASE_URL}/api/comments/${commentId}`, {
+      headers: { ...getAuthHeaders() }
+    });
+    toast.success('Comment deleted successfully');
+    return true;
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    toast.error('Failed to delete comment');
     return false;
   }
-  
-  // Remove comment from mock database
-  comments.splice(commentIndex, 1);
-  setMockComments(comments);
-  
-  toast.success('Comment deleted successfully');
-  return true;
-};
-
-export const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  return formatDistanceToNow(date, { addSuffix: true });
 };
