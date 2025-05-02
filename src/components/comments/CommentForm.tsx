@@ -49,6 +49,13 @@ const CommentForm: React.FC<CommentFormProps> = ({
     }
 
     try {
+      console.log("Submitting comment:", {
+        content: values.content,
+        articleId,
+        authorId: user.id,
+        authorName: user.name,
+      });
+      
       await createComment({
         content: values.content,
         articleId,
@@ -62,7 +69,12 @@ const CommentForm: React.FC<CommentFormProps> = ({
       onCommentAdded();
     } catch (error) {
       console.error("Error posting comment:", error);
-      toast.error("Failed to post comment");
+      
+      // Don't show another toast as the API function already shows one
+      // Just log the detailed error for debugging
+      if (error instanceof Error) {
+        console.error("Error details:", error.message);
+      }
     }
   };
 

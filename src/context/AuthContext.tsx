@@ -5,7 +5,7 @@ type User = {
   id: string;
   name: string;
   email: string;
-  role?: "admin" | "author" | "user";
+  role?: "ADMIN" | "DEFAULT" | "MANAGER";
   avatar?: string;
   bio?: string;
 };
@@ -154,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         id: randomId,
         name: `Google User`,
         email: `user_${randomId}@google.com`,
-        role: "user" as const,
+        role: "DEFAULT" as const,
         avatar: `https://i.pravatar.cc/150?u=google_${randomId}`,
       };
       
@@ -182,7 +182,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         id: randomId,
         name: `GitHub User`,
         email: `user_${randomId}@github.com`,
-        role: "user" as const,
+        role: "DEFAULT" as const,
         avatar: `https://i.pravatar.cc/150?u=github_${randomId}`,
       };
       

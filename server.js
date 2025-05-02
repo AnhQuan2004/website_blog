@@ -139,8 +139,8 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'author', 'user'],
-    default: 'user',
+    enum: ['ADMIN', 'DEFAULT', 'MANAGER'],
+    default: 'DEFAULT',
   },
   avatar: String,
   bio: String,
@@ -185,6 +185,60 @@ const authMiddleware = async (req, res, next) => {
     
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
+    }
+    
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
+// Admin middleware for protected routes
+const adminMiddleware = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+    
+    if (user.role !== 'ADMIN') {
+      return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+    }
+    
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
+// Manager middleware for protected routes
+const managerMiddleware = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+    
+    if (user.role !== 'ADMIN' && user.role !== 'MANAGER') {
+      return res.status(403).json({ message: 'Access denied. Manager privileges required.' });
     }
     
     req.user = user;
@@ -312,6 +366,63 @@ app.put('/api/user/update', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error('Update user error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// User Management Routes
+app.get('/api/users', adminMiddleware, async (req, res) => {
+  try {
+    const users = await User.find({})
+      .select('-password -__v')
+      .sort({ createdAt: -1 });
+    
+    const formattedUsers = users.map(user => ({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar,
+      bio: user.bio,
+      createdAt: user.createdAt
+    }));
+    
+    res.status(200).json(formattedUsers);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/users/:id', adminMiddleware, async (req, res) => {
+  try {
+    const { role } = req.body;
+    
+    if (!role || !['ADMIN', 'DEFAULT', 'MANAGER'].includes(role)) {
+      return res.status(400).json({ message: 'Invalid role' });
+    }
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { role },
+      { new: true, runValidators: true }
+    ).select('-password -__v');
+    
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.status(200).json({
+      id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      avatar: updatedUser.avatar,
+      bio: updatedUser.bio,
+      createdAt: updatedUser.createdAt
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
     res.status(500).json({ message: error.message });
   }
 });

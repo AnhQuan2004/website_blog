@@ -1,7 +1,34 @@
 import express from 'express';
 import Comment from '../models/Comment.js';
+import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
+
+// Authentication middleware for protected routes
+const authMiddleware = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secure-jwt-secret');
+    const UserModel = mongoose.models.User || mongoose.model('User');
+    const user = await UserModel.findById(decoded.userId);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Auth error:', error);
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+};
 
 // GET /api/comments - Get comments for an article
 router.get('/', async (req, res) => {
@@ -33,10 +60,15 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/comments - Create a new comment
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     if (!req.body) {
       return res.status(400).json({ error: 'No data provided' });
+    }
+
+    // Ensure authorId matches authenticated user
+    if (req.body.authorId !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Author ID must match authenticated user' });
     }
 
     // Create new comment
@@ -115,14 +147,22 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /api/comments/:id - Delete a comment
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
-    // Delete comment
-    const comment = await Comment.findByIdAndDelete(req.params.id);
+    // First find the comment to check ownership
+    const comment = await Comment.findById(req.params.id);
     
     if (!comment) {
       return res.status(404).json({ error: 'Comment not found' });
     }
+    
+    // Check if user is the comment owner or an admin
+    if (comment.authorId !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'You do not have permission to delete this comment' });
+    }
+    
+    // Delete comment
+    await Comment.findByIdAndDelete(req.params.id);
     
     return res.status(200).json({ message: 'Comment deleted successfully' });
   } catch (error) {

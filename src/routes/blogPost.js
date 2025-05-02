@@ -30,6 +30,51 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
+// Middleware to check if user can manage posts
+const canManagePostMiddleware = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secure-jwt-secret');
+    const UserModel = mongoose.models.User || mongoose.model('User');
+    const user = await UserModel.findById(decoded.userId);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    
+    req.user = user;
+    
+    // Check if user can modify this post
+    if (req.params.slug) {
+      const blogPost = await BlogPost.findOne({ slug: req.params.slug });
+      
+      if (!blogPost) {
+        return res.status(404).json({ error: 'Blog post not found' });
+      }
+      
+      // If user is ADMIN or MANAGER, they can edit any post
+      if (user.role === 'ADMIN' || user.role === 'MANAGER') {
+        return next();
+      }
+      
+      // Otherwise, users can only edit their own posts
+      if (blogPost.authorId !== user._id.toString()) {
+        return res.status(403).json({ error: 'You do not have permission to modify this post' });
+      }
+    }
+    
+    next();
+  } catch (error) {
+    console.error('Auth error:', error);
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+};
+
 // Add a debug route to test API accessibility
 router.get('/debug', (req, res) => {
   console.log('Debug route accessed');
@@ -79,6 +124,53 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('Error fetching blog posts:', error);
     return res.status(500).json({ error: 'Error fetching blog posts' });
+  }
+});
+
+// GET /api/blog/user/:userId - Get blog posts by specific user (for MANAGER and ADMIN roles)
+router.get('/user/:userId', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { limit = 10, page = 1, sort = 'createdAt', order = 'desc' } = req.query;
+    
+    // Only MANAGER and ADMIN can view other users' posts
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'MANAGER' && req.user._id.toString() !== userId) {
+      return res.status(403).json({ error: 'You do not have permission to view these posts' });
+    }
+    
+    // Build query
+    const query = { authorId: userId };
+    
+    // Count total documents for pagination
+    const total = await BlogPost.countDocuments(query);
+    
+    // Fetch posts with pagination
+    const posts = await BlogPost.find(query)
+      .sort({ [sort as string]: order === 'asc' ? 1 : -1 })
+      .limit(parseInt(limit as string))
+      .skip((parseInt(page as string) - 1) * parseInt(limit as string))
+      .select('-__v');
+    
+    // Format posts
+    const formattedPosts = posts.map(post => ({
+      ...post._doc,
+      id: post._id.toString(),
+      createdAt: post.createdAt.toISOString(),
+      updatedAt: post.updatedAt.toISOString()
+    }));
+    
+    return res.status(200).json({
+      posts: formattedPosts,
+      pagination: {
+        total,
+        pages: Math.ceil(total / parseInt(limit as string)),
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user blog posts:', error);
+    return res.status(500).json({ error: 'Error fetching user blog posts' });
   }
 });
 
@@ -172,7 +264,7 @@ router.get('/:slug', async (req, res) => {
 });
 
 // PUT /api/blog/:slug - Update a blog post
-router.put('/:slug', authMiddleware, async (req, res) => {
+router.put('/:slug', canManagePostMiddleware, async (req, res) => {
   try {
     // Update blog post
     const blogPost = await BlogPost.findOneAndUpdate(
@@ -204,7 +296,7 @@ router.put('/:slug', authMiddleware, async (req, res) => {
 });
 
 // DELETE /api/blog/:slug - Delete a blog post
-router.delete('/:slug', authMiddleware, async (req, res) => {
+router.delete('/:slug', canManagePostMiddleware, async (req, res) => {
   try {
     // Delete blog post
     const blogPost = await BlogPost.findOneAndDelete({ slug: req.params.slug });

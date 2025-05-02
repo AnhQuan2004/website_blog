@@ -178,6 +178,13 @@ const Navbar: React.FC = () => {
                 <DropdownMenuItem asChild>
                   <Link to="/dashboard">Dashboard</Link>
                 </DropdownMenuItem>
+                {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin">
+                      <Newspaper size={16} className="mr-2" /> Admin Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
                   <Link to="/profile">Profile</Link>
                 </DropdownMenuItem>
@@ -289,6 +296,15 @@ const Navbar: React.FC = () => {
                 >
                   Dashboard
                 </Link>
+                {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+                  <Link
+                    to="/admin"
+                    className="block py-2 text-lg"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Admin Dashboard
+                  </Link>
+                )}
                 <Link
                   to="/profile"
                   className="block py-2 text-lg"

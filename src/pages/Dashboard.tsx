@@ -5,7 +5,7 @@ import { getArticles, deleteArticle, Article } from '@/utils/api';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Pencil, Trash2, Eye, Plus, ShieldCheck } from 'lucide-react';
+import { Pencil, Trash2, Eye, Plus, ShieldCheck, UserCog, FileText, Users } from 'lucide-react';
 import { formatDate } from '@/utils/api';
 import { toast } from 'sonner';
 
@@ -63,13 +63,13 @@ const Dashboard = () => {
     }
   };
 
-  const handleDeleteArticle = async (articleId: string) => {
+  const handleDeleteArticle = async (slug: string) => {
     if (!window.confirm('Are you sure you want to delete this article? This action cannot be undone.')) {
       return;
     }
     
     try {
-      await deleteArticle(articleId);
+      await deleteArticle(slug);
       // Refresh the article list
       fetchUserArticles();
       if (isAdmin) {
@@ -96,21 +96,47 @@ const Dashboard = () => {
           <p className="text-muted-foreground mt-1">
             {isAdmin 
               ? "Manage all posts and your account" 
-              : "Manage your posts and account"}
+              : user?.role === 'MANAGER'
+                ? "Manage blog posts and your account"
+                : "Manage your posts and account"}
           </p>
-          {isAdmin && (
+          {user?.role === 'ADMIN' && (
             <div className="mt-2 inline-flex items-center px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
               <ShieldCheck size={12} className="mr-1" />
               Admin Account
             </div>
           )}
+          {user?.role === 'MANAGER' && (
+            <div className="mt-2 inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+              <UserCog size={12} className="mr-1" />
+              Manager Account
+            </div>
+          )}
         </div>
-        <Button asChild>
-          <Link to="/create-post" className="flex items-center gap-2">
-            <Plus size={16} />
-            Create New Post
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          {user?.role === 'ADMIN' && (
+            <Button variant="outline" asChild>
+              <Link to="/user-management" className="flex items-center gap-2">
+                <Users size={16} />
+                User Management
+              </Link>
+            </Button>
+          )}
+          {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+            <Button variant="outline" asChild>
+              <Link to="/blog-management" className="flex items-center gap-2">
+                <FileText size={16} />
+                Blog Management
+              </Link>
+            </Button>
+          )}
+          <Button asChild>
+            <Link to="/create-post" className="flex items-center gap-2">
+              <Plus size={16} />
+              Create New Post
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {isAdmin && (
@@ -215,7 +241,7 @@ const Dashboard = () => {
                               variant="outline"
                               size="sm"
                               className="text-destructive hover:bg-destructive hover:text-white"
-                              onClick={() => handleDeleteArticle(article.id)}
+                              onClick={() => handleDeleteArticle(article.slug)}
                             >
                               <Trash2 size={16} className="mr-1" /> Delete
                             </Button>

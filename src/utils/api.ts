@@ -417,9 +417,8 @@ export const formatDate = (dateString: string) => {
 // API base URL - check for API URL
 const API_BASE_URL = ''; // Use relative path instead of hardcoded 'http://localhost:3000'
 
-// Determine whether to use mock data or real API
-// Set to false to use the MongoDB API 
-const USE_MOCK_DATA = false;
+// Set to true to use mock data instead of making API calls
+const USE_MOCK_DATA = true;
 
 // Function to get all blog posts with filtering options
 export const getArticles = async (options: {
@@ -776,6 +775,7 @@ export const createComment = async (commentData: {
   authorId: string;
   authorName: string;
   authorAvatar?: string;
+  parentId?: string;
 }): Promise<Comment> => {
   if (USE_MOCK_DATA) {
     // Use mock data
@@ -798,14 +798,43 @@ export const createComment = async (commentData: {
   }
   
   try {
+    const token = getAuthToken();
+    if (!token) {
+      toast.error('You must be logged in to post a comment');
+      throw new Error('Authentication required');
+    }
+    
+    console.log('Posting comment with auth token');
+    
     const response = await axios.post(`${API_BASE_URL}/api/comments`, commentData, {
-      headers: { ...getAuthHeaders() }
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      }
     });
+    
     toast.success('Comment posted successfully');
     return response.data;
   } catch (error) {
     console.error('Error posting comment:', error);
-    toast.error('Failed to post comment');
+    
+    // Provide more specific error messages
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        // Server responded with an error status code
+        const errorMessage = error.response.data?.error || 'Failed to post comment';
+        toast.error(errorMessage);
+      } else if (error.request) {
+        // Request was made but no response received
+        toast.error('No response from server. Please check your connection.');
+      } else {
+        // Error occurred during request setup
+        toast.error(`Error: ${error.message}`);
+      }
+    } else {
+      toast.error('Failed to post comment');
+    }
+    
     throw error;
   }
 };
@@ -832,6 +861,12 @@ export const deleteComment = async (commentId: string): Promise<boolean> => {
   }
   
   try {
+    const token = getAuthToken();
+    if (!token) {
+      toast.error('You must be logged in to delete comments');
+      return false;
+    }
+    
     await axios.delete(`${API_BASE_URL}/api/comments/${commentId}`, {
       headers: { ...getAuthHeaders() }
     });
@@ -839,7 +874,163 @@ export const deleteComment = async (commentId: string): Promise<boolean> => {
     return true;
   } catch (error) {
     console.error('Error deleting comment:', error);
-    toast.error('Failed to delete comment');
+    if (axios.isAxiosError(error) && error.response?.status === 403) {
+      toast.error('You do not have permission to delete this comment');
+    } else {
+      toast.error('Failed to delete comment');
+    }
     return false;
+  }
+};
+
+// User Management Functions
+export type UserData = {
+  id: string;
+  name: string;
+  email: string;
+  role: 'ADMIN' | 'DEFAULT' | 'MANAGER';
+  avatar?: string;
+  bio?: string;
+  createdAt: string;
+};
+
+// Function to get all users (for ADMIN users)
+export const getAllUsers = async (): Promise<UserData[]> => {
+  if (USE_MOCK_DATA) {
+    // Use mock data
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+    
+    // Return a list of mock users
+    return [
+      {
+        id: '1',
+        name: 'John Doe',
+        email: 'john@example.com',
+        role: 'ADMIN',
+        avatar: 'https://i.pravatar.cc/150?u=john',
+        createdAt: new Date(2023, 1, 1).toISOString()
+      },
+      {
+        id: '2',
+        name: 'Jane Smith',
+        email: 'jane@example.com',
+        role: 'MANAGER',
+        avatar: 'https://i.pravatar.cc/150?u=jane',
+        createdAt: new Date(2023, 2, 15).toISOString()
+      },
+      {
+        id: '3',
+        name: 'Bob Johnson',
+        email: 'bob@example.com',
+        role: 'DEFAULT',
+        avatar: 'https://i.pravatar.cc/150?u=bob',
+        createdAt: new Date(2023, 3, 20).toISOString()
+      }
+    ];
+  }
+  
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      toast.error('You must be logged in to access user data');
+      return [];
+    }
+    
+    const response = await axios.get(`${API_BASE_URL}/api/users`, {
+      headers: { ...getAuthHeaders() }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    if (axios.isAxiosError(error) && error.response?.status === 403) {
+      toast.error('You do not have permission to access user data');
+    } else {
+      toast.error('Failed to fetch users');
+    }
+    return [];
+  }
+};
+
+// Function to update a user's role (for ADMIN users)
+export const updateUserRole = async (userId: string, role: 'ADMIN' | 'DEFAULT' | 'MANAGER'): Promise<UserData | null> => {
+  if (USE_MOCK_DATA) {
+    // Use mock data
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+    
+    // Return a mock updated user
+    return {
+      id: userId,
+      name: 'Updated User',
+      email: 'user@example.com',
+      role,
+      avatar: 'https://i.pravatar.cc/150?u=updated',
+      createdAt: new Date().toISOString()
+    };
+  }
+  
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      toast.error('You must be logged in to update user roles');
+      return null;
+    }
+    
+    const response = await axios.put(`${API_BASE_URL}/api/users/${userId}`, 
+      { role },
+      { headers: { ...getAuthHeaders() } }
+    );
+    
+    toast.success(`User role updated to ${role}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    if (axios.isAxiosError(error) && error.response?.status === 403) {
+      toast.error('You do not have permission to update user roles');
+    } else {
+      toast.error('Failed to update user role');
+    }
+    return null;
+  }
+};
+
+// Function to get all user IDs (for MANAGER and ADMIN roles)
+export const getAllUserIds = async (): Promise<{id: string, name: string}[]> => {
+  if (USE_MOCK_DATA) {
+    // Use mock data
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+    
+    // Return a list of mock users with only IDs and names
+    return [
+      { id: '1', name: 'John Doe' },
+      { id: '2', name: 'Jane Smith' },
+      { id: '3', name: 'Bob Johnson' }
+    ];
+  }
+  
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      toast.error('You must be logged in to access user data');
+      return [];
+    }
+    
+    const response = await axios.get(`${API_BASE_URL}/api/users`, {
+      headers: { ...getAuthHeaders() }
+    });
+    
+    // Extract only the id and name fields from each user
+    return response.data.map((user: UserData) => ({
+      id: user.id,
+      name: user.name
+    }));
+  } catch (error) {
+    console.error('Error fetching user IDs:', error);
+    if (axios.isAxiosError(error) && error.response?.status === 403) {
+      toast.error('You do not have permission to access user data');
+    } else {
+      toast.error('Failed to fetch user data');
+    }
+    return [];
   }
 };
